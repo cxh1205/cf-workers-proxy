@@ -427,8 +427,8 @@ function rewriteBody(content: string): string {
 	let newContent = content;
 
 	const boundaries: Boundary[] = [
-		{ left: '(["\'`])', right: '(\\1|/.*?\\1)' }, // 引号包裹
-		{ left: '\\(', right: '\\)' }, // ()
+		{ left: '(["\'`])', right: '(\\1|/[^\\1]*?\\1)' }, // 引号包裹
+		{ left: '\\(', right: '(\\)|/[^)]*?\\))' }, // ()
 	];
 	// 首先替换基础域名
 	for (const boundary of boundaries) {
