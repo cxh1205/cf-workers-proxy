@@ -1,0 +1,87 @@
+name: Auto Merge Master to cf-* Branches (Simple)
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: master
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Get cf- branches
+        id: get_branches
+        run: |
+          git fetch origin
+          branches=$(git branch -r | grep -v 'HEAD' | grep -v 'master' | sed 's/origin\///' | grep '^cf-')
+          
+          if [ -z "$branches" ]; then
+            echo "No cf- branches found"
+            echo "has_cf_branches=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          echo "Found branches: $branches"
+          echo "branches=$branches" >> $GITHUB_OUTPUT
+          echo "has_cf_branches=true" >> $GITHUB_OUTPUT
+
+      - name: Merge to cf- branches
+        if: steps.get_branches.outputs.has_cf_branches == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          branches=(${{ steps.get_branches.outputs.branches }})
+          echo "Processing ${#branches[@]} branches"
+          
+          for branch in "${branches[@]}"; do
+            echo "=== Processing $branch ==="
+            
+            # Checkout branch
+            git checkout -b "$branch" origin/"$branch"
+            
+            # Try merge
+            if git merge --no-ff master -m "Auto-merge master to $branch"; then
+              git push origin "$branch"
+              echo "✅ Merged successfully"
+            else
+              echo "❌ Merge failed, checking for conflicts"
+              
+              # Check if conflicts exist
+              if git status | grep -q "both modified"; then
+                echo "🔄 Creating PR for conflicts"
+                gh pr create \
+                  --base "$branch" \
+                  --head master \
+                  --title "Auto-merge master to $branch" \
+                  --body "Automatic merge failed due to conflicts. Please resolve manually." \
+                  --label "auto-merge" --label "conflict"
+              fi
+              
+              git merge --abort
+            fi
+            
+            # Cleanup
+            git checkout master
+            git branch -D "$branch"
+          done
+
+      - name: No cf- branches
+        if: steps.get_branches.outputs.has_cf_branches == 'false'
+        run: |
+          echo "⚠️ No cf- branches found. Exiting."
