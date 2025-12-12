@@ -29,7 +29,7 @@ jobs:
         id: get_branches
         run: |
           git fetch origin
-          branches=$(git branch -r | grep -v 'HEAD' | grep -v 'master' | sed 's/origin\///' | grep '^cf-')
+          branches=$(git branch -r | grep -v 'HEAD' | grep -v 'master' | sed 's/origin\///' | grep '^cf-' || true)
           
           if [ -z "$branches" ]; then
             echo "No cf- branches found"
