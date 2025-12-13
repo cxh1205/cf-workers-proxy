@@ -4,6 +4,17 @@ on:
   push:
     branches:
       - master
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+      - ".editorconfig"
+      - ".vscode/**"
+      - "docs/**"
+      - ".prettierrc*"
+      - ".eslintrc*"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
   workflow_dispatch:
 
 jobs:
@@ -38,7 +49,7 @@ jobs:
           fi
           
           echo "Found branches: $branches"
-          echo "branches=$branches" >> $GITHUB_OUTPUT
+          echo "branches=${branches//$'\n'/ }" >> $GITHUB_OUTPUT
           echo "has_cf_branches=true" >> $GITHUB_OUTPUT
 
       - name: Merge to cf- branches
