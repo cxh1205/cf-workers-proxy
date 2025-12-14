@@ -40,7 +40,7 @@ jobs:
       # 部署到 Cloudflare Workers（仅当 secrets 存在时执行）
       - name: Deploy to Cloudflare Workers
         if: ${{ env.CF_API_TOKEN != '' && env.CF_ACCOUNT_ID != '' }}
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@v3.1.0
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
