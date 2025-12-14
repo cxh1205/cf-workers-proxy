@@ -1,0 +1,44 @@
+name: Deploy to Cloudflare Workers
+
+# 触发条件：1. 推送到 cf- 开头的分支（过滤非业务文件变更）；2. 支持手动触发
+on:
+  push:
+    branches:
+      - 'cf-*'  # 仅 cf- 开头的分支推送触发
+    paths-ignore:
+      - "**.md"
+      - "LICENSE"
+      - ".gitignore"
+      - ".editorconfig"
+      - ".vscode/**"
+      - "docs/**"
+      - ".prettierrc*"
+      - ".eslintrc*"
+      - ".github/ISSUE_TEMPLATE/**"
+      - ".github/PULL_REQUEST_TEMPLATE/**"
+  workflow_dispatch:  # 保留手动触发
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      deployments: write
+    # 核心条件：仅当两个 secrets 都存在时，才运行该任务
+    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    steps:
+      # 检出当前推送的 cf-* 分支代码（v6 最新版，自动关联当前分支）
+      - name: Checkout cf-* branch code
+        uses: actions/checkout@v6
+
+      # 部署到 Cloudflare Workers（仅当 secrets 存在时执行）
+      - name: Deploy to Cloudflare Workers
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
