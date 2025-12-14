@@ -30,7 +30,7 @@ jobs:
       contents: read
       deployments: write
     # 核心条件：仅当两个 secrets 都存在时，才运行该任务
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
+    if: ${{ github.secrets.CLOUDFLARE_API_TOKEN != '' && github.secrets.CLOUDFLARE_ACCOUNT_ID != '' }}
     steps:
       # 检出当前推送的 cf-* 分支代码（v6 最新版，自动关联当前分支）
       - name: Checkout cf-* branch code
