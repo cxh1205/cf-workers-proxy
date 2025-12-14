@@ -93,6 +93,10 @@ export default {
 		}
 		// --- 鉴权模块结束 ---
 
+		if (CONFIG.PROXY_HOSTNAME === '') {
+			return new Response('Proxy Error: PROXY_HOSTNAME is not configured.', { status: 500 });
+		}
+
 		// 2. 解析目标 URL
 		const targetUrlStr = parseTargetUrl(url);
 
