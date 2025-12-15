@@ -184,7 +184,8 @@ async function handleAuthentication(request: Request, url: URL): Promise<Respons
 
 	// 2. Git 客户端白名单 (Git 操作直接放行)
 	// 常见的 git user-agent 格式: "git/2.30.0", "git-lfs/2.13.0"
-	if (userAgent.startsWith('git/') || userAgent.startsWith('git-lfs/')) {
+	const passUserAgents = ['git/', 'git-lfs/', 'curl/'];
+	if (passUserAgents.some((ua) => userAgent.startsWith(ua))) {
 		return null;
 	}
 
