@@ -3,15 +3,11 @@ using Workerd = import "/workerd/workerd.capnp";
 const config :Workerd.Config = (
   services = [
     (name = "main", worker = .proxyWorker),
-    (name = "internet", network = (
-      allow = ["public"],
-      tlsOptions = (trustBrowserCas = true)
-    ))
   ],
 
   sockets = [
     # 占位符，将在构建阶段被替换
-    ( name = "http", address = "0.0.0.0:8080", http = (), service = "main" )
+    ( name = "http", address = "*:8080", http = (), service = "main" )
   ]
 );
 
