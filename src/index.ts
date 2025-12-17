@@ -16,7 +16,7 @@ const flexibleJson = <T extends z.ZodTypeAny>(schema: T) => {
 				return JSON.parse(val);
 			} catch (e) {
 				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
+					code: "custom",
 					message: "Invalid JSON string format",
 					fatal: true // 标记为致命错误，停止后续校验
 				});
@@ -31,30 +31,30 @@ const flexibleJson = <T extends z.ZodTypeAny>(schema: T) => {
 
 // 2. Schema 定义
 const ConfigSchema = z.object({
-	ENVIRONMENT:z.enum(['production', 'development', 'staging']).default('production'),
-	PASSWORD: z.string().default(''),
+	ENVIRONMENT:z.enum(['production', 'development', 'staging']).nullable().transform((val) => val ?? undefined).default('production'),
+	PASSWORD: z.string().nullable().transform((val) => val ?? undefined).default(''),
 	PROXY_HOSTNAME: z.string().min(1, "PROXY_HOSTNAME is required"),
-	PROXY_PROTOCOL: z.string().optional().default('https://'),
+	PROXY_PROTOCOL: z.string().nullable().transform((val) => val ?? undefined).optional().default('https://'),
 	// 兼容 String 或 Array<String>
 	PROXY_RESOURCE_DOMAINS: flexibleJson(z.array(z.string()))
-		.default([]),
+		.nullable().transform((val) => val ?? undefined).default([]),
 
 	// 兼容 String 或 Record<String, String>
 	PROXY_DOMAINS: flexibleJson(z.record(z.string(), z.string()))
-		.default({}),
+		.nullable().transform((val) => val ?? undefined).default({}),
 
 	// -----------------------------
 
-	WECHAT_CHECK_FILE_NAME: z.string().optional(),
-	WECHAT_CHECK_FILE_CONTENT: z.string().optional(),
-	WECHAT_CHECK_FILE_MODIFY_TIME: z.string().optional(),
+	WECHAT_CHECK_FILE_NAME: z.string().nullable().transform((val) => val ?? undefined).optional(),
+	WECHAT_CHECK_FILE_CONTENT: z.string().nullable().transform((val) => val ?? undefined).optional(),
+	WECHAT_CHECK_FILE_MODIFY_TIME: z.string().nullable().transform((val) => val ?? undefined).optional(),
 });
 
 const result = ConfigSchema.safeParse(env);
 
 if (!result.success) {
 	// 如果校验失败，返回详细的错误信息，方便调试
-	throw new Error(`Configuration validation failed. Please check the logs for details. ${JSON.stringify(result.error.format(), null, 2)}`);
+	throw new Error(`参数设置错误： ${JSON.stringify(result.error.format(), null, 2)}`);
 }
 
 // 获取清洗后的 config
