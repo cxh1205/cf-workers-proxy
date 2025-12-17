@@ -1,34 +1,69 @@
 import { env } from 'cloudflare:workers';
+import * as z from "zod";
 
-/**
- * --- 配置区域：修改此处以适配其他网站 ---
- */
-interface Env {
-	ENVIRONMENT: string;
-	PASSWORD?: string;
-	PROXY_HOSTNAME?: string;
-	PROXY_PROTOCOL?: string;
-	PROXY_RESOURCE_DOMAINS?: string[];
-	PROXY_DOMAINS?: Record<string, string>;
-	WECHAT_CHECK_FILE_NAME?: string;
-	WECHAT_CHECK_FILE_CONTENT?: string;
-	WECHAT_CHECK_FILE_MODIFY_TIME?: string;
+// 1. 修改辅助函数：兼容 "已经是对象" 和 "需要解析的字符串" 两种情况
+const flexibleJson = <T extends z.ZodTypeAny>(schema: T) => {
+	return z.preprocess((val, ctx) => {
+		// 情况 A: 已经是对象/数组 (来自 wrangler.jsonc / 单元测试对象)
+		if (typeof val === 'object' && val !== null) {
+			return val;
+		}
+
+		// 情况 B: 字符串 (来自 .env)
+		if (typeof val === 'string') {
+			if (val.trim() === '') return undefined;
+			try {
+				return JSON.parse(val);
+			} catch (e) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: "Invalid JSON string format",
+					fatal: true // 标记为致命错误，停止后续校验
+				});
+				return z.NEVER;
+			}
+		}
+
+		// 情况 C: undefined/null
+		return val;
+	}, schema);
+};
+
+// 2. Schema 定义
+const ConfigSchema = z.object({
+	ENVIRONMENT:z.enum(['production', 'development', 'staging']).default('production'),
+	PASSWORD: z.string().default(''),
+	PROXY_HOSTNAME: z.string().min(1, "PROXY_HOSTNAME is required"),
+	PROXY_PROTOCOL: z.string().optional().default('https://'),
+	// 兼容 String 或 Array<String>
+	PROXY_RESOURCE_DOMAINS: flexibleJson(z.array(z.string()))
+		.default([]),
+
+	// 兼容 String 或 Record<String, String>
+	PROXY_DOMAINS: flexibleJson(z.record(z.string(), z.string()))
+		.default({}),
+
+	// -----------------------------
+
+	WECHAT_CHECK_FILE_NAME: z.string().optional(),
+	WECHAT_CHECK_FILE_CONTENT: z.string().optional(),
+	WECHAT_CHECK_FILE_MODIFY_TIME: z.string().optional(),
+});
+
+const result = ConfigSchema.safeParse(env);
+
+if (!result.success) {
+	// 如果校验失败，返回详细的错误信息，方便调试
+	throw new Error(`Configuration validation failed. Please check the logs for details. ${JSON.stringify(result.error.format(), null, 2)}`);
 }
 
+// 获取清洗后的 config
+const config = result.data;
+
+
 const CONFIG = {
-	// 密码
-	PASSWORD: (env as Env).PASSWORD || '',
+	...config,
 	PASSWORD_COOKIE_NAME: 'xx-worker-password',
-
-	// 镜像的地址
-	PROXY_HOSTNAME: (env as Env).PROXY_HOSTNAME ?? '',
-	PROXY_PROTOCOL: (env as Env).PROXY_PROTOCOL ?? 'https://',
-
-	// 需要被代理和重写的资源域名列表
-	PROXY_RESOURCE_DOMAINS: (env as Env).PROXY_RESOURCE_DOMAINS ?? ([] as string[]),
-
-	// 需要直接替换的链接域名映射 (key: 原始域名, value: 替换为)
-	PROXY_DOMAINS: (env as Env).PROXY_DOMAINS ?? ({} as Record<string, string>),
 
 	// 需要移除的请求头
 	REMOVE_HEADERS: [
@@ -47,10 +82,6 @@ const CONFIG = {
 		// 'sec-ch-ua-mobile': '?0',
 		// 'sec-ch-ua': '"Not(A:Brand";v="99", "Microsoft Edge";v="133", "Chromium";v="133"'
 	} as Record<string, string>,
-
-	WECHAT_CHECK_FILE_NAME: (env as Env).WECHAT_CHECK_FILE_NAME ?? '',
-	WECHAT_CHECK_FILE_CONTENT: (env as Env).WECHAT_CHECK_FILE_CONTENT ?? '',
-	WECHAT_CHECK_FILE_MODIFY_TIME: (env as Env).WECHAT_CHECK_FILE_MODIFY_TIME ?? '',
 };
 
 /**
@@ -59,11 +90,11 @@ const CONFIG = {
 let BASEURL: string = '';
 
 export default {
-	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+	async fetch(request: Request, env: unknown, ctx: ExecutionContext): Promise<Response> {
 		const url = new URL(request.url);
 
 		// 1. 初始化配置 & 设置 BaseURL
-		BASEURL = env.ENVIRONMENT === 'development' ? 'http://127.0.0.1:8787' : url.origin;
+		BASEURL = CONFIG.ENVIRONMENT === 'development' ? 'http://127.0.0.1:8787' : url.origin;
 
 		if (
 			CONFIG.WECHAT_CHECK_FILE_NAME &&
@@ -369,7 +400,7 @@ function processHeaders(originalHeaders: Headers): Headers {
 	headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, DELETE, PATCH');
 	headers.set('Access-Control-Allow-Headers', '*');
 	headers.set('Vary', 'Origin');
-	if ((env as Env).ENVIRONMENT === 'development') {
+	if (CONFIG.ENVIRONMENT === 'development') {
 		headers.set('Cache-Control', '0, no-cache, no-store, must-revalidate');
 	}
 
