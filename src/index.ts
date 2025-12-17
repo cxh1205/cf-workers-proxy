@@ -1,6 +1,8 @@
 import { env } from 'cloudflare:workers';
 import * as z from "zod";
 
+console.log("Worker is starting...");
+
 // 1. 修改辅助函数：兼容 "已经是对象" 和 "需要解析的字符串" 两种情况
 const flexibleJson = <T extends z.ZodTypeAny>(schema: T) => {
 	return z.preprocess((val, ctx) => {
