@@ -6,7 +6,7 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "",
 	"main": "src/index.ts",
-	"compatibility_date": "2025-12-09",
+	"compatibility_date": "2025-12-02",
 	"placement": { "mode": "smart" },
 	"workers_dev": false,
 	"observability": {
